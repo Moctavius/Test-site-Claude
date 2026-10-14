@@ -1,0 +1,420 @@
+<title>Quiz Culture Générale</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: one narrow column, like a game-show card. Segmented progress bar doubles as the answer record. */
+:root {
+  --bg: #edf1f7;
+  --surface: #ffffff;
+  --ink: #101b33;
+  --muted: #56637f;
+  --line: #d2dae8;
+  --accent: #2b45d9;
+  --accent-ink: #ffffff;
+  --good: #167a4d;
+  --good-bg: #e3f5ec;
+  --bad: #b8302f;
+  --bad-bg: #fbe8e7;
+  --display: "Bricolage Grotesque", "Trebuchet MS", system-ui, sans-serif;
+  --body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0c1326;
+    --surface: #141e38;
+    --ink: #e9eefa;
+    --muted: #9aa7c6;
+    --line: #27345b;
+    --accent: #8197ff;
+    --accent-ink: #0c1326;
+    --good: #4cd392;
+    --good-bg: #123a2c;
+    --bad: #ff8585;
+    --bad-bg: #44191d;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0c1326;
+  --surface: #141e38;
+  --ink: #e9eefa;
+  --muted: #9aa7c6;
+  --line: #27345b;
+  --accent: #8197ff;
+  --accent-ink: #0c1326;
+  --good: #4cd392;
+  --good-bg: #123a2c;
+  --bad: #ff8585;
+  --bad-bg: #44191d;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 17px;
+  line-height: 1.5;
+  padding-block: 40px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+main { max-width: 640px; margin: 0 auto; min-width: 0; }
+h1, h2 { font-family: var(--display); line-height: 1.08; text-wrap: balance; margin: 0; letter-spacing: -0.02em; }
+p { margin: 0; }
+button { font: inherit; color: inherit; cursor: pointer; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
+
+.kicker { font-family: var(--mono); font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+
+/* Start screen */
+.intro { display: grid; gap: 20px; }
+.intro h1 { font-size: clamp(2.4rem, 9vw, 4rem); font-weight: 800; }
+.intro h1 .mark { color: var(--accent); }
+.lede { color: var(--muted); max-width: 46ch; }
+.field { display: grid; gap: 10px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  border: 1.5px solid var(--line); background: var(--surface); border-radius: 999px;
+  padding: 8px 16px; font-weight: 500; font-size: 15px; transition: border-color .15s, background .15s;
+}
+.chip:hover { border-color: var(--accent); }
+.chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.meta { font-family: var(--mono); font-size: 13px; color: var(--muted); }
+.btn {
+  border: 0; border-radius: 10px; padding: 14px 22px; font-weight: 600; font-size: 17px;
+  background: var(--accent); color: var(--accent-ink); justify-self: start; transition: transform .12s, opacity .15s;
+}
+.btn:hover { opacity: .92; }
+.btn:active { transform: translateY(1px); }
+.btn.ghost { background: transparent; color: var(--ink); border: 1.5px solid var(--line); }
+.btn.ghost:hover { border-color: var(--accent); opacity: 1; }
+
+/* Quiz screen */
+.quiz { display: grid; gap: 22px; }
+.topline { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.ticks { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 5px; }
+.tick { height: 6px; border-radius: 3px; background: var(--line); }
+.tick.now { background: var(--accent); }
+.tick.ok { background: var(--good); }
+.tick.ko { background: var(--bad); }
+.question { font-size: clamp(1.5rem, 5.4vw, 2.1rem); font-weight: 700; }
+.options { display: grid; gap: 10px; padding: 0; margin: 0; list-style: none; }
+.opt {
+  width: 100%; display: grid; grid-template-columns: 34px 1fr; gap: 14px; align-items: center; text-align: left;
+  background: var(--surface); border: 1.5px solid var(--line); border-radius: 12px; padding: 14px 16px;
+  transition: border-color .15s, background .15s;
+}
+.opt:hover:not(:disabled) { border-color: var(--accent); }
+.opt:disabled { cursor: default; }
+.opt .key {
+  font-family: var(--mono); font-size: 14px; width: 34px; height: 34px; border-radius: 8px;
+  display: grid; place-items: center; border: 1.5px solid var(--line); color: var(--muted);
+}
+.opt .txt { min-width: 0; overflow-wrap: anywhere; }
+.opt.ok { background: var(--good-bg); border-color: var(--good); }
+.opt.ok .key { background: var(--good); border-color: var(--good); color: var(--surface); }
+.opt.ko { background: var(--bad-bg); border-color: var(--bad); }
+.opt.ko .key { background: var(--bad); border-color: var(--bad); color: var(--surface); }
+.opt.dim { opacity: .55; }
+.feedback { display: grid; gap: 14px; padding: 16px 18px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--surface); }
+.feedback.ok { border-color: var(--good); }
+.feedback.ko { border-color: var(--bad); }
+.verdict { font-family: var(--display); font-weight: 700; font-size: 1.2rem; }
+.feedback.ok .verdict { color: var(--good); }
+.feedback.ko .verdict { color: var(--bad); }
+
+/* Result screen */
+.result { display: grid; gap: 22px; }
+.score { font-family: var(--display); font-weight: 800; font-size: clamp(4rem, 20vw, 7rem); line-height: 1; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
+.score small { font-size: .38em; color: var(--muted); font-weight: 600; letter-spacing: 0; }
+.result h2 { font-size: clamp(1.5rem, 5vw, 2rem); }
+.review { display: grid; gap: 10px; padding: 0; margin: 0; list-style: none; }
+.review li { background: var(--surface); border: 1.5px solid var(--line); border-radius: 12px; padding: 14px 16px; display: grid; gap: 4px; }
+.review .good { color: var(--good); font-weight: 600; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<main>
+  <section id="screen-start" class="intro" aria-labelledby="t-start">
+    <p class="kicker">32 questions · 6 thèmes</p>
+    <h1 id="t-start">Quiz de culture générale<span class="mark">&nbsp;?</span></h1>
+    <p class="lede">Dix questions à choix multiple, tirées au hasard. Chaque réponse est suivie d’une explication courte.</p>
+    <div class="field">
+      <span class="kicker" id="cat-label">Thème</span>
+      <div class="chips" id="chips" role="group" aria-labelledby="cat-label"></div>
+      <p class="meta" id="cat-meta"></p>
+    </div>
+    <button class="btn" id="btn-start" type="button">Commencer</button>
+  </section>
+
+  <section id="screen-quiz" class="quiz" hidden aria-labelledby="q-text">
+    <div class="topline">
+      <span class="kicker" id="q-count"></span>
+      <span class="kicker" id="q-cat"></span>
+    </div>
+    <div class="ticks" id="ticks" aria-hidden="true"></div>
+    <h2 class="question" id="q-text"></h2>
+    <ul class="options" id="options"></ul>
+    <div class="feedback" id="feedback" hidden aria-live="polite">
+      <p class="verdict" id="verdict"></p>
+      <p id="explain"></p>
+      <button class="btn" id="btn-next" type="button">Question suivante</button>
+    </div>
+  </section>
+
+  <section id="screen-result" class="result" hidden aria-labelledby="r-title">
+    <p class="kicker" id="r-cat"></p>
+    <p class="score" id="r-score"></p>
+    <h2 id="r-title"></h2>
+    <p class="lede" id="r-best"></p>
+    <div id="r-review-wrap" hidden>
+      <p class="kicker" style="margin-bottom:10px">À retenir</p>
+      <ul class="review" id="r-review"></ul>
+    </div>
+    <div class="actions">
+      <button class="btn" id="btn-again" type="button">Rejouer</button>
+      <button class="btn ghost" id="btn-menu" type="button">Changer de thème</button>
+    </div>
+  </section>
+</main>
+
+<script>
+const CATS = [
+  { id: "toutes", label: "Tous les thèmes" },
+  { id: "histoire", label: "Histoire" },
+  { id: "geo", label: "Géographie" },
+  { id: "sciences", label: "Sciences" },
+  { id: "info", label: "Informatique" },
+  { id: "arts", label: "Arts & lettres" },
+  { id: "sport", label: "Sport" }
+];
+
+// Chaque question : c = thème, q = énoncé, o = propositions (la première est la bonne), e = explication.
+const QUESTIONS = [
+  { c: "histoire", q: "En quelle année a eu lieu la prise de la Bastille ?", o: ["1789", "1776", "1792", "1804"], e: "Le 14 juillet 1789, les Parisiens prennent la forteresse, symbole de l’Ancien Régime." },
+  { c: "histoire", q: "Quel roi de France est surnommé le Roi-Soleil ?", o: ["Louis XIV", "Louis XVI", "François Ier", "Henri IV"], e: "Louis XIV a régné de 1643 à 1715 et fait construire le château de Versailles." },
+  { c: "histoire", q: "Qui est sacré empereur des Français en 1804 ?", o: ["Napoléon Bonaparte", "Louis XVIII", "Charles X", "Louis-Philippe"], e: "Napoléon Bonaparte se couronne lui-même à Notre-Dame de Paris, le 2 décembre 1804." },
+  { c: "histoire", q: "En quelle année tombe le mur de Berlin ?", o: ["1989", "1961", "1975", "1991"], e: "Le mur est ouvert dans la nuit du 9 au 10 novembre 1989. Il avait été érigé en 1961." },
+  { c: "histoire", q: "Quelle civilisation a bâti le Machu Picchu ?", o: ["Les Incas", "Les Aztèques", "Les Mayas", "Les Olmèques"], e: "Cette cité des Andes péruviennes date du XVe siècle, à l’époque de l’Empire inca." },
+  { c: "histoire", q: "Quel duc de Normandie devient roi d’Angleterre après la bataille de Hastings, en 1066 ?", o: ["Guillaume le Conquérant", "Richard Cœur de Lion", "Henri Plantagenêt", "Robert Courteheuse"], e: "Guillaume bat le roi Harold et est couronné à Londres le jour de Noël 1066." },
+
+  { c: "geo", q: "Quelle est la capitale de l’Australie ?", o: ["Canberra", "Sydney", "Melbourne", "Perth"], e: "Canberra a été créée au début du XXe siècle comme compromis entre Sydney et Melbourne." },
+  { c: "geo", q: "Quel est le plus long fleuve de France ?", o: ["La Loire", "La Seine", "Le Rhône", "La Garonne"], e: "La Loire mesure environ 1 000 km. La Seine, plus célèbre, en fait environ 780." },
+  { c: "geo", q: "Quel est le pays le plus peuplé d’Afrique ?", o: ["Le Nigéria", "L’Égypte", "L’Éthiopie", "L’Afrique du Sud"], e: "Le Nigéria compte plus de 200 millions d’habitants." },
+  { c: "geo", q: "Quel est le plus haut sommet des Alpes ?", o: ["Le mont Blanc", "Le Cervin", "L’Eiger", "La Meije"], e: "Le mont Blanc culmine à environ 4 806 m, à la frontière franco-italienne." },
+  { c: "geo", q: "Quel est le plus grand désert chaud du monde ?", o: ["Le Sahara", "Le Gobi", "Le Kalahari", "Le désert d’Arabie"], e: "Le Sahara couvre environ 9 millions de km², soit presque la superficie de la Chine." },
+  { c: "geo", q: "Quelle est la capitale du Canada ?", o: ["Ottawa", "Toronto", "Montréal", "Vancouver"], e: "Ottawa est située en Ontario, sur la rivière du même nom, face à Gatineau (Québec)." },
+
+  { c: "sciences", q: "Quel est le symbole chimique de l’or ?", o: ["Au", "Or", "Ag", "Go"], e: "Au vient du latin aurum. Ag, c’est l’argent (argentum)." },
+  { c: "sciences", q: "Quelle planète du système solaire est la plus proche du Soleil ?", o: ["Mercure", "Vénus", "Mars", "Jupiter"], e: "Mercure orbite à environ 58 millions de km du Soleil, et boucle son tour en 88 jours." },
+  { c: "sciences", q: "Combien d’os compte le squelette d’un adulte ?", o: ["206", "180", "250", "312"], e: "Un bébé en possède plus de 300, dont beaucoup se soudent en grandissant." },
+  { c: "sciences", q: "Quel gaz est le plus abondant dans l’atmosphère terrestre ?", o: ["L’azote", "L’oxygène", "Le dioxyde de carbone", "L’argon"], e: "L’azote représente environ 78 % de l’air, l’oxygène environ 21 %." },
+  { c: "sciences", q: "Qui a découvert la pénicilline en 1928 ?", o: ["Alexander Fleming", "Louis Pasteur", "Marie Curie", "Robert Koch"], e: "Fleming remarque qu’une moisissure détruit les bactéries autour d’elle, dans une boîte de culture oubliée." },
+
+  { c: "info", q: "Que désigne le sigle RAM ?", o: ["La mémoire vive", "Le disque dur", "Le processeur", "La carte mère"], e: "RAM signifie Random Access Memory. Elle est effacée à l’extinction de la machine." },
+  { c: "info", q: "Quel protocole attribue automatiquement une adresse IP aux machines d’un réseau ?", o: ["DHCP", "DNS", "SMTP", "ARP"], e: "Le serveur DHCP distribue adresse, masque, passerelle et DNS. Le DNS, lui, traduit les noms en adresses." },
+  { c: "info", q: "Combien de bits comporte une adresse IPv4 ?", o: ["32", "16", "64", "128"], e: "32 bits, soit environ 4,3 milliards d’adresses. L’IPv6 passe à 128 bits." },
+  { c: "info", q: "Quel noyau de système d’exploitation Linus Torvalds a-t-il lancé en 1991 ?", o: ["Linux", "BSD", "Minix", "Darwin"], e: "Linux a été annoncé en août 1991 et est aujourd’hui au cœur d’Android et de la plupart des serveurs." },
+  { c: "info", q: "Quel port TCP est utilisé par défaut pour HTTPS ?", o: ["443", "80", "22", "8080"], e: "Le port 80 sert au HTTP non chiffré, le 22 au SSH." },
+
+  { c: "arts", q: "Qui a écrit Les Misérables ?", o: ["Victor Hugo", "Émile Zola", "Honoré de Balzac", "Alexandre Dumas"], e: "Le roman est publié en 1862. Il met en scène Jean Valjean et l’inspecteur Javert." },
+  { c: "arts", q: "Qui a peint La Joconde ?", o: ["Léonard de Vinci", "Michel-Ange", "Raphaël", "Botticelli"], e: "Léonard de Vinci y travaille dès 1503. Le tableau est exposé au musée du Louvre." },
+  { c: "arts", q: "Quel compositeur a écrit Les Quatre Saisons ?", o: ["Antonio Vivaldi", "Jean-Sébastien Bach", "Wolfgang Amadeus Mozart", "Georg Friedrich Haendel"], e: "Vivaldi les compose vers 1720, sous la forme de quatre concertos pour violon." },
+  { c: "arts", q: "Qui est l’auteur du Petit Prince ?", o: ["Antoine de Saint-Exupéry", "Jules Verne", "Albert Camus", "Marcel Pagnol"], e: "Saint-Exupéry, aviateur, publie le livre en 1943, à New York." },
+  { c: "arts", q: "Dans quelle ville se trouve le musée du Prado ?", o: ["Madrid", "Barcelone", "Séville", "Lisbonne"], e: "Le Prado abrite notamment des œuvres de Vélasquez et de Goya." },
+  { c: "arts", q: "Qui a écrit Le Rouge et le Noir ?", o: ["Stendhal", "Flaubert", "Maupassant", "Voltaire"], e: "Stendhal est le pseudonyme de Henri Beyle. Le roman paraît en 1830." },
+
+  { c: "sport", q: "Dans quelle ville se sont déroulés les Jeux olympiques d’été de 2024 ?", o: ["Paris", "Tokyo", "Los Angeles", "Londres"], e: "Paris les a accueillis pour la troisième fois, après 1900 et 1924." },
+  { c: "sport", q: "Quel pays a remporté la Coupe du monde de football en 2022 ?", o: ["L’Argentine", "La France", "La Croatie", "Le Brésil"], e: "L’Argentine a battu la France aux tirs au but en finale, au Qatar." },
+  { c: "sport", q: "Dans quel sport parle-t-on de « birdie » ?", o: ["Le golf", "Le badminton", "Le baseball", "Le cricket"], e: "Un birdie, c’est un trou terminé en un coup de moins que le par." },
+  { c: "sport", q: "Combien de sets faut-il gagner pour remporter un match de tennis messieurs en Grand Chelem ?", o: ["3", "2", "4", "5"], e: "Les matchs se jouent au meilleur des cinq sets, donc trois sets gagnants." }
+];
+
+const QUIZ_LENGTH = 10;
+const STORE_KEY = "quiz-culture-generale-best";
+
+const $ = (id) => document.getElementById(id);
+const screens = { start: $("screen-start"), quiz: $("screen-quiz"), result: $("screen-result") };
+
+let selectedCat = "toutes";
+let pool = [], idx = 0, score = 0, answered = false, results = [], missed = [];
+
+function loadBest() {
+  try { return JSON.parse(localStorage.getItem(STORE_KEY)) || {}; } catch (e) { return {}; }
+}
+function saveBest(map) {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(map)); } catch (e) {}
+}
+function show(name) {
+  for (const k in screens) screens[k].hidden = k !== name;
+  window.scrollTo(0, 0);
+}
+function shuffle(a) {
+  a = a.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+function catLabel(id) { return CATS.find((c) => c.id === id).label; }
+function available(id) { return id === "toutes" ? QUESTIONS.length : QUESTIONS.filter((q) => q.c === id).length; }
+
+function renderChips() {
+  const box = $("chips");
+  box.innerHTML = "";
+  CATS.forEach((c) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "chip";
+    b.textContent = c.label;
+    b.setAttribute("aria-pressed", String(c.id === selectedCat));
+    b.addEventListener("click", () => { selectedCat = c.id; renderChips(); });
+    box.appendChild(b);
+  });
+  const n = Math.min(QUIZ_LENGTH, available(selectedCat));
+  const best = loadBest()[selectedCat];
+  $("cat-meta").textContent = n + " questions" + (best ? " · meilleur score " + best.s + "/" + best.t : "");
+}
+
+function start() {
+  const src = selectedCat === "toutes" ? QUESTIONS : QUESTIONS.filter((q) => q.c === selectedCat);
+  pool = shuffle(src).slice(0, QUIZ_LENGTH).map((q) => ({
+    c: q.c, q: q.q, e: q.e, good: q.o[0],
+    opts: shuffle(q.o)
+  }));
+  idx = 0; score = 0; results = []; missed = [];
+  show("quiz");
+  renderQuestion();
+}
+
+function renderTicks() {
+  const t = $("ticks");
+  t.innerHTML = "";
+  pool.forEach((_, i) => {
+    const s = document.createElement("span");
+    s.className = "tick" + (results[i] === true ? " ok" : results[i] === false ? " ko" : i === idx ? " now" : "");
+    t.appendChild(s);
+  });
+}
+
+function renderQuestion() {
+  const q = pool[idx];
+  answered = false;
+  $("q-count").textContent = "Question " + (idx + 1) + " / " + pool.length;
+  $("q-cat").textContent = catLabel(q.c);
+  $("q-text").textContent = q.q;
+  $("feedback").hidden = true;
+  renderTicks();
+  const list = $("options");
+  list.innerHTML = "";
+  q.opts.forEach((text, i) => {
+    const li = document.createElement("li");
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "opt";
+    b.innerHTML = '<span class="key"></span><span class="txt"></span>';
+    b.querySelector(".key").textContent = "ABCD"[i];
+    b.querySelector(".txt").textContent = text;
+    b.addEventListener("click", () => choose(i));
+    li.appendChild(b);
+    list.appendChild(li);
+  });
+}
+
+function choose(i) {
+  if (answered) return;
+  answered = true;
+  const q = pool[idx];
+  const picked = q.opts[i];
+  const ok = picked === q.good;
+  results[idx] = ok;
+  if (ok) score++; else missed.push(q);
+  document.querySelectorAll("#options .opt").forEach((b, k) => {
+    b.disabled = true;
+    const t = q.opts[k];
+    if (t === q.good) b.classList.add("ok");
+    else if (k === i) b.classList.add("ko");
+    else b.classList.add("dim");
+  });
+  renderTicks();
+  const fb = $("feedback");
+  fb.className = "feedback " + (ok ? "ok" : "ko");
+  $("verdict").textContent = ok ? "Bonne réponse" : "Raté : c’était « " + q.good + " »";
+  $("explain").textContent = q.e;
+  $("btn-next").textContent = idx === pool.length - 1 ? "Voir le résultat" : "Question suivante";
+  fb.hidden = false;
+  $("btn-next").focus();
+}
+
+function next() {
+  if (idx < pool.length - 1) { idx++; renderQuestion(); }
+  else finish();
+}
+
+function verdictFor(ratio) {
+  if (ratio === 1) return "Sans faute.";
+  if (ratio >= 0.8) return "Très solide.";
+  if (ratio >= 0.6) return "Pas mal du tout.";
+  if (ratio >= 0.4) return "Il reste de la marge.";
+  return "On rejoue pour se rattraper ?";
+}
+
+function finish() {
+  const total = pool.length;
+  $("r-cat").textContent = catLabel(selectedCat);
+  $("r-score").innerHTML = score + "<small> / " + total + "</small>";
+  $("r-title").textContent = verdictFor(score / total);
+
+  const map = loadBest();
+  const prev = map[selectedCat];
+  let line;
+  if (!prev || score / total > prev.s / prev.t) {
+    map[selectedCat] = { s: score, t: total };
+    saveBest(map);
+    line = prev ? "Nouveau meilleur score pour ce thème." : "Premier score enregistré pour ce thème.";
+  } else {
+    line = "Meilleur score pour ce thème : " + prev.s + "/" + prev.t + ".";
+  }
+  $("r-best").textContent = line;
+
+  const wrap = $("r-review-wrap"), ul = $("r-review");
+  ul.innerHTML = "";
+  missed.forEach((q) => {
+    const li = document.createElement("li");
+    const a = document.createElement("span");
+    a.textContent = q.q;
+    const b = document.createElement("span");
+    b.className = "good";
+    b.textContent = q.good;
+    const c = document.createElement("span");
+    c.className = "meta";
+    c.textContent = q.e;
+    li.append(a, b, c);
+    ul.appendChild(li);
+  });
+  wrap.hidden = missed.length === 0;
+  show("result");
+}
+
+$("btn-start").addEventListener("click", start);
+$("btn-next").addEventListener("click", next);
+$("btn-again").addEventListener("click", start);
+$("btn-menu").addEventListener("click", () => { renderChips(); show("start"); });
+
+document.addEventListener("keydown", (e) => {
+  if (screens.quiz.hidden || answered || e.ctrlKey || e.metaKey || e.altKey) return;
+  const k = e.key.toLowerCase();
+  const i = "1234".includes(k) && k.length === 1 ? Number(k) - 1 : "abcd".indexOf(k);
+  if (k.length === 1 && i >= 0 && i < pool[idx].opts.length) choose(i);
+});
+
+renderChips();
+</script>
